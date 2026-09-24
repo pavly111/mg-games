@@ -1,60 +1,117 @@
 import { useState, useEffect } from 'react'
 import { collection, onSnapshot, orderBy, query, deleteDoc, doc } from 'firebase/firestore'
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { db } from '../firebase'
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
+const auth = getAuth()
 
 function Admin() {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [authenticated, setAuthenticated] = useState(
-  localStorage.getItem('mg_admin') === 'true'
-)
+  const [user, setUser] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+  const [error, setError] = useState('')
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
 
-  function handleLogin() {
-  if (password === ADMIN_PASSWORD) {
-    setAuthenticated(true)
-    localStorage.setItem('mg_admin', 'true')
-  } else {
-    alert('Wrong password!')
-  }
-}
-
   useEffect(() => {
-    if (!authenticated) return
-    const q = query(collection(db, 'games'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-      setGames(data)
-      setLoading(false)
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u)
+      setAuthReady(true)
+      if (u) {
+        localStorage.setItem('mg_admin', 'true')
+      } else {
+        localStorage.removeItem('mg_admin')
+      }
     })
     return () => unsub()
-  }, [authenticated])
+  }, [])
 
-  async function handleDelete(id) {
-    if (!confirm('Are you sure you want to delete this game?')) return
+  useEffect(() => {
+    if (!user) return
+    const q = query(collection(db, 'games'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        setGames(data)
+        setLoading(false)
+      },
+      (err) => {
+        setError('Could not load games: ' + err.message)
+        setLoading(false)
+      }
+    )
+    return () => unsub()
+  }, [user])
+
+  async function handleLogin() {
+    if (!email || !password) {
+      setError('Enter your email and password.')
+      return
+    }
+    setError('')
+    setSigningIn(true)
     try {
-      await deleteDoc(doc(db, 'games', id))
-    } catch (err) {
-      alert('Error deleting game: ' + err.message)
+      await signInWithEmailAndPassword(auth, email, password)
+      setPassword('')
+    } catch {
+      setError('Wrong email or password.')
+    } finally {
+      setSigningIn(false)
     }
   }
 
-  if (!authenticated) {
+  async function handleLogout() {
+    await signOut(auth)
+    setGames([])
+    setLoading(true)
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Are you sure you want to delete this game?')) return
+    setError('')
+    try {
+      await deleteDoc(doc(db, 'games', id))
+    } catch (err) {
+      setError('Error deleting game: ' + err.message)
+    }
+  }
+
+  if (!authReady) {
+    return (
+      <div className="page">
+        <p className="loading">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
     return (
       <div className="page">
         <div className="admin-login">
           <h1>Admin Access</h1>
-          <p>Enter the admin password to continue</p>
+          <p>Sign in to continue</p>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email..."
+            autoComplete="username"
+          />
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            placeholder="Enter password..."
+            placeholder="Password..."
+            autoComplete="current-password"
           />
-          <button onClick={handleLogin}>Enter</button>
+          {error && <p style={{ color: '#ff6b6b' }}>{error}</p>}
+          <button onClick={handleLogin} disabled={signingIn}>
+            {signingIn ? 'Signing in...' : 'Enter'}
+          </button>
         </div>
       </div>
     )
@@ -65,6 +122,10 @@ function Admin() {
       <div className="admin-container">
         <h1 className="admin-title">Admin Panel</h1>
         <p className="admin-sub">{games.length} games in archive</p>
+        <button className="delete-btn" onClick={handleLogout}>
+          Log out
+        </button>
+        {error && <p style={{ color: '#ff6b6b' }}>{error}</p>}
         {loading && <p className="loading">Loading...</p>}
         <div className="admin-list">
           {games.map((game) => (

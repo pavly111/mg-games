@@ -1,18 +1,28 @@
 import { useState, useEffect, useRef } from 'react'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { db } from '../firebase'
 import { useParams, useNavigate } from 'react-router-dom'
 
 const CATEGORIES = ['Treasure Hunt', 'Puzzle', 'Team Game', 'Outdoor', 'Indoor']
 
+const auth = getAuth()
+
+function extensionFor(type) {
+  if (type.includes('mp4')) return 'm4a'
+  if (type.includes('ogg')) return 'ogg'
+  return 'webm'
+}
+
 function GameDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const isAdmin = localStorage.getItem('mg_admin') === 'true'
+  const [isAdmin, setIsAdmin] = useState(false)
   const [game, setGame] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const [form, setForm] = useState({})
   const [imageUrl, setImageUrl] = useState('')
   const [voiceUrl, setVoiceUrl] = useState('')
@@ -20,10 +30,24 @@ function GameDetail() {
   const [voiceLoading, setVoiceLoading] = useState(false)
   const [recording, setRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState(null)
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState('')
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setIsAdmin(!!u))
+    return () => unsub()
+  }, [])
 
+  useEffect(() => {
+    if (!audioBlob) {
+      setAudioPreviewUrl('')
+      return
+    }
+    const url = URL.createObjectURL(audioBlob)
+    setAudioPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [audioBlob])
 
   useEffect(() => {
     async function fetchGame() {
@@ -55,6 +79,7 @@ function GameDetail() {
   async function handleImageUpload(e) {
     const file = e.target.files[0]
     if (!file) return
+    setError('')
     setImageLoading(true)
     const formData = new FormData()
     formData.append('file', file)
@@ -65,15 +90,19 @@ function GameDetail() {
         { method: 'POST', body: formData }
       )
       const data = await res.json()
+      if (!res.ok || !data.secure_url) {
+        throw new Error(data.error?.message || 'Upload failed')
+      }
       setImageUrl(data.secure_url)
-    } catch {
-      alert('Image upload failed')
+    } catch (err) {
+      setError('Image upload failed: ' + err.message)
     } finally {
       setImageLoading(false)
     }
   }
 
   async function startRecording() {
+    setError('')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mimeType = MediaRecorder.isTypeSupported('audio/webm')
@@ -90,12 +119,12 @@ function GameDetail() {
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' })
         setAudioBlob(blob)
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
       }
       mediaRecorder.start()
       setRecording(true)
     } catch {
-      alert('Microphone access denied.')
+      setError('Microphone access denied.')
     }
   }
 
@@ -108,9 +137,10 @@ function GameDetail() {
 
   async function uploadVoice() {
     if (!audioBlob) return
+    setError('')
     setVoiceLoading(true)
     const formData = new FormData()
-    formData.append('file', audioBlob, 'voice-note.webm')
+    formData.append('file', audioBlob, 'voice-note.' + extensionFor(audioBlob.type))
     formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET)
     try {
       const res = await fetch(
@@ -118,16 +148,19 @@ function GameDetail() {
         { method: 'POST', body: formData }
       )
       const data = await res.json()
+      if (!res.ok || !data.secure_url) {
+        throw new Error(data.error?.message || 'Upload failed')
+      }
       setVoiceUrl(data.secure_url)
-      alert('Voice note uploaded!')
-    } catch {
-      alert('Voice upload failed')
+    } catch (err) {
+      setError('Voice upload failed: ' + err.message)
     } finally {
       setVoiceLoading(false)
     }
   }
 
   async function handleSave() {
+    setError('')
     setSaving(true)
     try {
       await updateDoc(doc(db, 'games', id), {
@@ -137,9 +170,8 @@ function GameDetail() {
       })
       setGame({ ...game, ...form, imageUrl, voiceUrl })
       setEditing(false)
-      alert('Game updated!')
     } catch (err) {
-      alert('Error: ' + err.message)
+      setError('Could not save: ' + err.message)
     } finally {
       setSaving(false)
     }
@@ -190,6 +222,7 @@ function GameDetail() {
         ) : (
           <div className="detail-content">
             <h2 className="edit-heading">Edit Game</h2>
+            {error && <p style={{ color: '#ff6b6b' }}>{error}</p>}
             <div className="field">
               <label>Game Name</label>
               <input
@@ -244,7 +277,7 @@ function GameDetail() {
                 )}
                 {audioBlob && !voiceUrl && (
                   <>
-                    <audio controls src={URL.createObjectURL(audioBlob)} className="audio-preview" />
+                    <audio controls src={audioPreviewUrl} className="audio-preview" />
                     <button className="upload-voice-btn" onClick={uploadVoice} disabled={voiceLoading}>
                       {voiceLoading ? 'Uploading...' : '☁️ Upload Voice Note'}
                     </button>
