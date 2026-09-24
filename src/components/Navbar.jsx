@@ -4,7 +4,7 @@ function Navbar() {
   return (
     <nav className="navbar">
       <Link to="/" className="nav-logo">
-        <img src="/logo.png" alt="MG Games" className="logo-img" />
+        <img src={import.meta.env.BASE_URL + "logo.png"} alt="MG Games" className="logo-img" />
         <span className="logo-text">MG GAMES</span>
       </Link>
       <div className="nav-links">

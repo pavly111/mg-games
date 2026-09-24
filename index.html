@@ -4,11 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MG Games</title>
-    <link rel="icon" type="image/png" href="/icon2.png" />
-    <link rel="apple-touch-icon" href="/icon2.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon2.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" href="%BASE_URL%icon2.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icon2.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
     <meta name="theme-color" content="#00d4ff" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <style>
@@ -40,7 +41,7 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('%BASE_URL%sw.js')
       }
 
       let deferredPrompt
@@ -94,7 +95,7 @@
             color: white;
             margin-bottom: 20px;
           ">
-            <img src="/icon2.png" style="width:60px;height:60px;border-radius:14px;margin-bottom:16px;" />
+            <img src="%BASE_URL%icon2.png" style="width:60px;height:60px;border-radius:14px;margin-bottom:16px;" />
             <h3 style="font-size:1.1rem;margin-bottom:8px;color:#00d4ff;">Install MG Games</h3>
             <p style="color:#ffffff80;font-size:0.85rem;margin-bottom:20px;line-height:1.6;">
               To install on your iPhone:

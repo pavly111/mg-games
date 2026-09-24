@@ -9,7 +9,7 @@ function GameCard({ game }) {
         <img src={game.imageUrl} alt={game.name} className="game-image" />
       ) : (
         <div className="game-image-placeholder">
-  <img src="/logo.png" alt="MG Games" className="placeholder-logo" />
+  <img src={import.meta.env.BASE_URL + "logo.png"} alt="MG Games" className="placeholder-logo" />
 </div>
       )}
       <div className="game-info">
