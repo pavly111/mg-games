@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MG Games</title>
+    <link rel="icon" type="image/png" href="/icon2.png" />
+    <link rel="apple-touch-icon" href="/icon2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon2.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#00d4ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <style>
+      #pwa-installer {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #00d4ff20;
+        color: #00d4ff;
+        padding: 10px 18px;
+        border-radius: 20px;
+        display: none;
+        font-family: system-ui, sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        box-shadow: 0 4px 16px rgba(0, 212, 255, 0.2);
+        cursor: pointer;
+        z-index: 9999;
+        border: 1px solid #00d4ff30;
+        transition: all 0.2s;
+        backdrop-filter: blur(10px);
+      }
+      #pwa-installer:active { transform: scale(0.95); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="pwa-installer">⚡ Install</div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+      }
+
+      let deferredPrompt
+      const installBtn = document.getElementById('pwa-installer')
+      const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault()
+        deferredPrompt = e
+        installBtn.style.display = 'block'
+      })
+
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt()
+          const { outcome } = await deferredPrompt.userChoice
+          if (outcome === 'accepted') installBtn.style.display = 'none'
+          deferredPrompt = null
+        } else if (isIos) {
+          showIosGuide()
+        }
+      })
+
+      if (isIos && !window.navigator.standalone) {
+        installBtn.style.display = 'block'
+        installBtn.innerText = '⚡ Install'
+      }
+
+      function showIosGuide() {
+        const overlay = document.createElement('div')
+        overlay.style.cssText = `
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.85);
+          z-index: 99999;
+          display: flex;
+          justify-content: center;
+          align-items: flex-end;
+          padding: 20px;
+        `
+        overlay.innerHTML = `
+          <div style="
+            background: #0d1117;
+            border: 1px solid #00d4ff30;
+            border-radius: 20px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            font-family: system-ui, sans-serif;
+            color: white;
+            margin-bottom: 20px;
+          ">
+            <img src="/icon2.png" style="width:60px;height:60px;border-radius:14px;margin-bottom:16px;" />
+            <h3 style="font-size:1.1rem;margin-bottom:8px;color:#00d4ff;">Install MG Games</h3>
+            <p style="color:#ffffff80;font-size:0.85rem;margin-bottom:20px;line-height:1.6;">
+              To install on your iPhone:
+            </p>
+            <div style="display:flex;flex-direction:column;gap:12px;text-align:left;margin-bottom:24px;">
+              <div style="display:flex;align-items:center;gap:12px;background:#ffffff08;padding:12px;border-radius:12px;">
+                <span style="font-size:1.4rem;">1️⃣</span>
+                <span style="font-size:0.85rem;color:#ffffffcc;">Tap the <strong style="color:#00d4ff;">Share</strong> button at the bottom of Safari</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:#ffffff08;padding:12px;border-radius:12px;">
+                <span style="font-size:1.4rem;">2️⃣</span>
+                <span style="font-size:0.85rem;color:#ffffffcc;">Scroll down and tap <strong style="color:#00d4ff;">Add to Home Screen</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:#ffffff08;padding:12px;border-radius:12px;">
+                <span style="font-size:1.4rem;">3️⃣</span>
+                <span style="font-size:0.85rem;color:#ffffffcc;">Tap <strong style="color:#00d4ff;">Add</strong> in the top right corner</span>
+              </div>
+            </div>
+            <button onclick="this.closest('div').parentElement.remove()" style="
+              width:100%;
+              padding:12px;
+              background:linear-gradient(135deg,#00d4ff,#0077ff);
+              color:white;
+              border:none;
+              border-radius:12px;
+              font-size:0.95rem;
+              font-weight:600;
+              cursor:pointer;
+            ">Got it!</button>
+          </div>
+        `
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.remove()
+        })
+        document.body.appendChild(overlay)
+      }
+    </script>
+  </body>
+</html>
